@@ -255,7 +255,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			entry = new KVEntryImp(newNode.firstKey(), newNode, newNode.size());
 		} 
 		/**
-		 * we are at level 0 and not bulk loading
+		 * if not bulk loading
 		 */
 		else if (!load) { 
 			entry = updateBlock(nEntry.entries[index], entry);
@@ -313,8 +313,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		if (nEntry.size < ctx.getBlockSize()) {
 			nEntry.serialize(buf);
 			lockAndWrite(blkNo, data);
-			curBlkSync++;
-			stat.numOfLoad++;
+			curBlkSync++;			
 			return null;
 		}
 		/**
@@ -351,7 +350,8 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 				byte[] dataNext = readBlk(nBlkId, ctx.getBlockSize());
 				NodeEntry.setPrevLink(newNode.getBlkNo(), ByteBuffer.wrap(dataNext));
 				writeBlk(nBlkId, dataNext);
-				curBlkSync++;				
+				curBlkSync++;	
+				stat.numOfLoad++;
 			}
 			/**
 			 *  if the new block is the last block

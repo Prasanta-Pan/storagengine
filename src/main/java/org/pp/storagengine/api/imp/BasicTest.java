@@ -1,6 +1,7 @@
 package org.pp.storagengine.api.imp;
 import static org.pp.storagengine.api.imp.Util.GB;
 import static org.pp.storagengine.api.imp.Util.MB;
+import static org.pp.storagengine.api.imp.Util.KB;
 
 import java.io.File;
 import java.security.MessageDigest;
@@ -8,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
@@ -21,6 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.pp.storagengine.api.KVEngine;
 import org.pp.storagengine.api.KVEntry;
 import org.pp.storagengine.api.KVIterator;
+import org.pp.storagengine.api.StatisticsMXBean;
 
 public class BasicTest {
 	// Maximum database size to test
@@ -312,6 +315,34 @@ public class BasicTest {
 			list.clear();
 		}
 	}
+	
+	private static void printState() {
+		StatisticsMXBean mbean = db.getStatistics();
+		StringBuilder sbldr = new StringBuilder("################################# Statistics Start #####################################" + "\n");
+		sbldr.append("Apprx db size (MB): " + mbean.getApprxSize() / MB + "\n");
+		sbldr.append("Data block size (KB): " + mbean.getDataBlockSize() / KB + "\n");
+		sbldr.append("B+ tree hieght : " + mbean.getHt() + "\n");
+		sbldr.append("Last sync time : " + new Date(mbean.getLastSyncTime()) + "\n");
+		sbldr.append("Max block per file : " + mbean.getMaxBlockPerFile() + "\n");
+		sbldr.append("Data file size (MB): " + mbean.getMaxDataFileSize() + "\n");
+		sbldr.append("Max LOB size (KB): " + mbean.getMaxLobSize() / KB + "\n");
+		sbldr.append("Max sync time(ms) : " + mbean.getMaxSyncTime() + "\n");
+		// nodes per level
+		for (int i = -1 ; i <= mbean.getHt(); i++) {
+			sbldr.append("Nodes per level : " + mbean.getNmOfNode(i) + "/" + i + "\n");
+		}
+		sbldr.append("Number of active records : " + mbean.getNumOfActRecs() + "\n");
+		sbldr.append("Number of branch entries : " + mbean.getNumOfBranchEntry() + "\n");
+		sbldr.append("Number of data files : " + mbean.getNumOfDataFiles() + "\n");
+		sbldr.append("Number of deleted records (apprx) : " + mbean.getNumOfDelRecs() + "\n");
+		sbldr.append("Number of load : " + mbean.getNumOfLoad() + "\n");
+		sbldr.append("Number of sync : " + mbean.getNumOfSync() + "\n");
+		sbldr.append("Sync after number of write : " + mbean.getMaxBlkSync() + "\n");
+		sbldr.append("Number of writes per sync : " + (mbean.getNumOfActRecs() + mbean.getNumOfDelRecs()) / mbean.getNumOfSync() + "\n");
+		sbldr.append("Number of writes per load : " + (mbean.getNumOfActRecs() + mbean.getNumOfDelRecs()) / mbean.getNumOfLoad() + "\n") ;
+		sbldr.append("################################# Statistics End #####################################" );	
+		System.out.println(sbldr.toString());
+	}
 
 	// Create digest from value
 	private static byte[] getDigest(byte[] key, byte[] val) {
@@ -391,6 +422,7 @@ public class BasicTest {
 			put();
 			delete();
 			get();
+			printState();
 		} finally {
 			db.close();
 		}

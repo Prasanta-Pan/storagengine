@@ -246,12 +246,11 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		NodeEntry nEntry = node.getNodeEntry();
 		// find index
 		int index = findIndex(nEntry, entry);
-		Node newNode = null;
 		/**
 		 * recursively reach at level 0
 		 */
 		if (htl > 0) {
-			newNode = insertEntry(nEntry.getNode(index), entry, htl - 1);
+			Node newNode = insertEntry(nEntry.getNode(index), entry, htl - 1);
 			if (newNode == null) return null;
 			entry = new KVEntryImp(newNode.firstKey(), newNode, newNode.size());
 		} 
@@ -265,8 +264,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		/**
 		 * adjust brunch entry
 		 */
-		newNode = adjustEntry(node, ++index, entry, htl);
-		return newNode;
+		return adjustEntry(node, ++index, entry, htl);		
 	}
     /**
      * Update block. Just append if the block is not full or fetch write and split
@@ -505,7 +503,8 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		t = (System.currentTimeMillis() - t);
 		if (t > stat.maxSyncTime)
 			stat.maxSyncTime = t;
-		stat.lastSyncTime = System.nanoTime();
+		stat.lastSyncTime = System.currentTimeMillis();
+		stat.numOfSync++;
 	}
 	
 	/**
@@ -530,7 +529,9 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		NodeEntry eLocal = new NodeEntry(nEntry.blkNo,tmp,size,nEntry.next, nEntry.prev);
 		// Atomically set new Node Entry
 		node.setNodeEntry(eLocal);
+		// update statistics
 		stat.numOfBranchEntry++;
+		// do split if size go beyond block size
 		if (size >= ctx.getBlockSize())
 			return split(node,-1,ht);
 		return null;
@@ -708,7 +709,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 	}
 	
 	/**
-	 * recursively find out the last block and load
+	 * Load the last block
 	 * @param blkId
 	 * @return
 	 * @throws Exception
@@ -717,27 +718,29 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		/**
 		 *  To ensure we are dealing with right mode block
 		 */
-		Long nextId = -1L;
-		Long blkId = right;	
-		for (;;) {
+		Long nextId = right, blkId;
+		ByteBuffer buf = null;
+		
+		do {
+			blkId = nextId;
+			// lock block id
 			kLocker.lock(blkId);
 			try {
 				// read block
 				byte[] data = readBlk(blkId, ctx.getBlockSize());
 				// Get byte buffer
-				ByteBuffer buf = ByteBuffer.wrap(data);
-				// check if we are really dealing with last block
-				if ((nextId = NodeEntry.getNextLink(buf)) == -1L) {
-					// Load sorted list
-					NodeEntry nEntry = NodeEntry.loadSorted(buf, blkId);
-					// load unsorted list now
-					return merge(NodeEntry.loadUnsorted(buf, null), nEntry);	
-				}										
+				buf = ByteBuffer.wrap(data);
+				// read next link to ensure we are dealing with last block only
+				nextId = NodeEntry.getNextLink(buf);
 			} finally {
 				kLocker.unlock(blkId);
-				blkId = nextId;
-			}			
-		}		
+			}
+		} while (nextId != -1L);
+		
+		// Load sorted list
+		NodeEntry nEntry = NodeEntry.loadSorted(buf, blkId);
+		// load unsorted list now
+		return merge(NodeEntry.loadUnsorted(buf, null), nEntry);		
 	}
 	
 	/**
@@ -753,11 +756,6 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		NodeEntry nEntry = n.getNodeEntry();
 		if (ht > 0)
 			return findLastBlock(nEntry.getNode(nEntry.Len() - 1), ht - 1);
-		/**
-		 * Ensure we are dealing with right most node of level 0
-		 */
-		while ((n = nEntry.nextNode()) != null) 
-			nEntry = n.getNodeEntry();
 		/**
 		 *  get the last block
 		 */
@@ -822,18 +820,16 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 
 	@Override
 	public KVEntry delete(byte[] key) throws Exception {
-		KVEntry entry = put(key, null, true);
-		stat.numOfDelRecs++;
-		return entry;
+		return put(key, null, true);		
 	}
 
 	@Override
 	public KVEntry put(byte[] key, byte[] value) throws Exception {
-		return put(key,value,false); 	
+		return put(key,value,false); 		
 	}
 	
 	/**
-	 * Supporting method for put/delete operations
+	 * common method for add/update/delete operations
 	 * @param key
 	 * @param val
 	 * @param del
@@ -850,12 +846,17 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			buildTree(entry);
 			/** check if time for issue a sync... */
 			if (curBlkSync > ctx.getMaxBlkSync()) {
-				curBlkSync = 0;
 				syncFiles();
+				curBlkSync = 0;
 			}
-			// Update statistics MBEAN
-			stat.numOfActRecs++;
+			// set value back to value in case it was a LOB
 			entry.value = val;
+			// update size statistics
+			stat.apprxSize += entry.size;
+			// update number of record statistics
+			if (!del) stat.numOfActRecs++;
+			// update number of deleted record statistics
+			else stat.numOfDelRecs++;
 			return entry;			
 		} finally {
 			wLoc.unlock();
@@ -973,7 +974,11 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		}
 	}
 	
-	/** Internal comparator for entry comparison  */
+	/**
+	 * Internal comparator for entry comparison
+	 * @author prasantsmac
+	 *
+	 */
 	private static final class EComparator implements Comparator<KVEntryImp> {
 		private Comparator<byte[]>  comptr = null;
 		private EComparator(Comparator<byte[]>  comptr) {
@@ -984,6 +989,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			return comptr.compare(o1.key, o2.key);
 		}
 	}
+	
 	/**
 	 * A place holder of Node
 	 * @author pan.prasanta@gmail.com
@@ -999,6 +1005,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		}
 		private int size() { return root.nEntry.size; }
 	}
+	
 	/**
 	 * Node is a place holder of Node Entry
 	 * @author pan.prasanta@gmail.com
@@ -1225,6 +1232,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			nEntry.entries = list.toArray(new KVEntryImp[0]);
 		}	    
 	}
+	
 	/**
 	 * KVEntry implementation
 	 * @author 
@@ -1249,23 +1257,44 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		KVEntryImp(byte[] key, Object val, int size) { init(key, val, false, size, System.nanoTime()); }
 		KVEntryImp(byte[] key, Object val, boolean dMark, int size, long ts) { init(key, val, dMark, size, ts); }
 		
-				
+		/**
+		 * Create a Key value entry and perform validation		
+		 * @param key
+		 * @param val
+		 */
 		private KVEntryImp(byte[] key, byte[] val) { 
 			checkKey(key);
 			checkValue(val);			
 			init(key, val, false, 0, System.nanoTime());
 			size = sSize();
-		}	
+		}
+		
+		/**
+		 * Check if key is null or empty and size limit
+		 * @param key
+		 */
 		private void checkKey(byte[] key) {
 			if (key == null || key.length == 0)
 				throw new NullPointerException("Key can not be null or empty");
 			if (key.length > MAX_KEY_SIZE)
 				throw new RuntimeException("Key length can not be greater than " + MAX_KEY_SIZE + " bytes");
 		}
+		/**
+		 * check if value is null or empty
+		 * @param val
+		 */
 	    private void checkValue(byte[] val) {
 	    	if (val != null && val.length == 0)
 	    		throw new RuntimeException("Value can not be empty");    		
 	    }
+	    /**
+	     * Common method for constructors. initialise all relevant fields
+	     * @param key
+	     * @param val
+	     * @param dMark
+	     * @param size
+	     * @param ts
+	     */
 		void init(byte[] key, Object val, boolean dMark, int size, long ts) {
 			this.dMarker = dMark;
 			this.key = key;
@@ -1273,6 +1302,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			this.size = size;
 			this.ts = ts;
 		}
+		
 		@Override
 		public String toString() {
 			String keyStr = key != null ? Arrays.toString(key) : "null";
@@ -1321,12 +1351,13 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			bBuffer.putInt(size);
 			// Set deletion marker
 			bBuffer.put(dMarker ? (byte) 1 : 0);
-			// copy key bytes
-			if (key != null) {
+			// copy key bytes if not null
+			if (key == null) 
+				bBuffer.putInt(0);				
+			else {
 				bBuffer.putInt(key.length);
 				bBuffer.put(key);
-			} else
-				bBuffer.putInt(0);
+			}
 			// Check value
 			if (value != null) {
 				if (value instanceof Long)
@@ -1368,6 +1399,10 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			}		
 			return entry;
 		}
+		/**
+		 * Get a copy of entry
+		 * @return
+		 */
 		KVEntryImp getACopy() {
 			KVEntryImp newEntry = new KVEntryImp();
 			newEntry.key = copyKey();
@@ -1377,12 +1412,20 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			newEntry.dMarker = dMarker;
 			return newEntry;
 		}
+		/**
+		 * Copy key
+		 * @return
+		 */
 		private byte[] copyKey() {
 			if (key == null) return null;
 			byte[] keyNew = new byte[key.length];;
 			System.arraycopy(key, 0, keyNew, 0, key.length);
 			return keyNew;
 		}
+		/**
+		 * Copy value
+		 * @return
+		 */
 		private Object copyValue() {
 			if (value == null)
 				return null;

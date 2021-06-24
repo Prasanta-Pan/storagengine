@@ -12,15 +12,16 @@ import org.pp.storagengine.api.StatisticsMXBean;
 class Statistics implements StatisticsMXBean {
 	ConcurrentMap<Integer,Integer> htMap = new ConcurrentHashMap<>();
 	private SysContext ctx = null;
-	volatile int 	ht = 0;
-	volatile long 	numOfActRecs = 0;
-	volatile long 	numOfDelRecs = 0;
-	volatile int 	numOfDataFiles = 1;
-	volatile int 	numOfBranchEntry = 1;
-	volatile long 	numOfLoad = 0;
-	volatile long 	apprxSize = 0;
-	volatile long 	lastSyncTime = 0;
-	volatile long 	maxSyncTime = 0;
+	volatile int 	ht 					= 0;
+	volatile long 	numOfActRecs 		= 0;
+	volatile long 	numOfDelRecs 		= 0;
+	volatile int 	numOfDataFiles 		= 1;
+	volatile int 	numOfBranchEntry 	= 1;
+	volatile long 	numOfLoad 			= 0;
+	volatile long 	apprxSize 			= 0;
+	volatile long 	lastSyncTime 		= 0;
+	volatile long 	maxSyncTime 		= 0;
+	volatile long	numOfSync 			= 0;
 			
 				
 	@Override
@@ -46,6 +47,9 @@ class Statistics implements StatisticsMXBean {
 
 	@Override
 	public long getLastSyncTime() { return lastSyncTime; }
+	
+	@Override
+	public long getNumOfSync() { return numOfSync; }
 
 	@Override
 	public int getDataBlockSize() { return ctx.getBlockSize(); }
@@ -55,6 +59,8 @@ class Statistics implements StatisticsMXBean {
 
 	@Override
 	public int getMaxBlockPerFile() { return ctx.getMBlockFile(); }
+	
+	public int getMaxBlkSync() { return ctx.getMaxBlkSync(); } 
 
 	@Override
 	public String getRootDir() { return ctx.getRootDir(); }

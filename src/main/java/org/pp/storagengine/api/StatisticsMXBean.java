@@ -8,7 +8,7 @@ public interface StatisticsMXBean {
 	 */
     public int getHt();
     /**
-     * Total number nodes
+     * Total number nodes based on height parameter
      * @param ht
      * @return
      */
@@ -38,6 +38,16 @@ public interface StatisticsMXBean {
      * @return
      */
     public long getNumOfLoad();
+    /**
+     * number of database sync
+     * @return
+     */
+    public long getNumOfSync();
+    /**
+     * Sync after this number of write
+     * @return
+     */
+    public int getMaxBlkSync();
     /**
      * Approximate size of database
      * @return

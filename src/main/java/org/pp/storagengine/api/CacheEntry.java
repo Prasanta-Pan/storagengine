@@ -9,10 +9,11 @@ package org.pp.storagengine.api;
  *
  */
 public interface CacheEntry {
-   /**
-    * Return entry size
-    * @return
-    */
-   public int entrySize();
-  
+	/**
+	 * Return entry size
+	 * 
+	 * @return
+	 */
+	public int entrySize();
+
 }

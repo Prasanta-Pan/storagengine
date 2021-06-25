@@ -15,7 +15,7 @@ class ReadWriteLockImp extends ReadWriteLock {
 						if (kl.wLock) {
 							kl.notifyAll();
 							return;
-						}						
+						}
 						map.remove(lk.key);
 					}
 				} else { // must be writer unlocking key
@@ -26,6 +26,6 @@ class ReadWriteLockImp extends ReadWriteLock {
 				// finally remove the mapping
 				map.remove(lk);
 			}
-		}		
+		}
 	}
 }

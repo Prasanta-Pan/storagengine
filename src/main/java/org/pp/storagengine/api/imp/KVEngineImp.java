@@ -208,8 +208,11 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			dBlkNo = 0;
 			stat.numOfDataFiles++;
 		}
+		// generate disk reference number
 		long ref = (long) dataFileNum << 32 | dBlkNo & 0xFFFFFFFFL;
+		// update block number
 		dBlkNo += nb;
+		// return reference number
 		return ref;
 	}	
 	/**
@@ -343,21 +346,23 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			nEntry = node.nEntry;
 			nEntry.serialize(buf);
 			writeBlk(nEntry.blkNo, data);
+			
 			/**
-			 * Update previous link of next block if exist
+			 * if the new block is the last block
 			 */
-			if (nBlkId != -1L) { // if next link exist
+			if (nBlkId == -1L) {
+				right = newNode.getBlkNo();
+			}
+			/**
+			 * else Update previous link of next block
+			 */
+			else {
 				byte[] dataNext = readBlk(nBlkId, ctx.getBlockSize());
 				NodeEntry.setPrevLink(newNode.getBlkNo(), ByteBuffer.wrap(dataNext));
 				writeBlk(nBlkId, dataNext);
-				curBlkSync++;	
+				curBlkSync++;
 				stat.numOfLoad++;
 			}
-			/**
-			 *  if the new block is the last block
-			 */
-			if (nBlkId == -1L)
-				right = newNode.getBlkNo();
 			
 		} finally {
 			kLocker.unlock(nBlkId);
@@ -453,6 +458,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 				nb++;
 			// read LOB now 
 			byte[] data = readBlk(ref, nb * ctx.getBlockSize());
+			// get byte buffer
 			ByteBuffer buf = ByteBuffer.wrap(data);
 			// Get it d serialise
 			entry = KVEntryImp.dSerialize(buf);				
@@ -467,7 +473,9 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 	 * @throws Exception
 	 */
 	private void writeBlk(long blkNo, byte[] data) throws Exception {
+		// find file number from reference
 		int fileNo = (int) (blkNo >> 32);
+		// find block number from reference number as well
 		int bNo = (int) blkNo;
 		// create a cache key
 		IntCacheEntry key = new IntCacheEntry(fileNo);
@@ -503,7 +511,9 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		t = (System.currentTimeMillis() - t);
 		if (t > stat.maxSyncTime)
 			stat.maxSyncTime = t;
+		// update number of sync statistics
 		stat.numOfSync++;
+		// update sync time
 		stat.lastSyncTime = System.currentTimeMillis();		
 	}
 	
@@ -517,15 +527,20 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 	 * @throws Exception
 	 */
 	private Node adjustEntry(Node node, int pointer, KVEntryImp entry, int ht) throws Exception {
+		// retrieve corresponding node entry from node
 		NodeEntry nEntry = node.getNodeEntry();
+		// create copies of existing KVEntry
 		KVEntryImp[] tmp = new KVEntryImp[nEntry.Len() + 1];
+		// copy it
 		System.arraycopy(nEntry.entries, 0, tmp, 0, nEntry.Len());
-		// possible insertion point
+		// find possible insertion point
 		for (int j = tmp.length - 1; j > pointer; j--)
 			tmp[j] = tmp[j - 1];
+		// insert new entry
 		tmp[pointer] = entry;
+		// calculate new size
 		int size = nEntry.size + entry.sSize();
-		// Set new NodeEntry
+		// create a new node entry
 		NodeEntry eLocal = new NodeEntry(nEntry.blkNo,tmp,size,nEntry.next, nEntry.prev);
 		// Atomically set new Node Entry
 		node.setNodeEntry(eLocal);
@@ -533,7 +548,8 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		stat.numOfBranchEntry++;
 		// do split if size go beyond block size
 		if (size >= ctx.getBlockSize())
-			return split(node,-1,ht);
+			return split(node, -1, ht);
+		// return null if no split
 		return null;
 	}
     /**
@@ -726,9 +742,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			kLocker.lock(blkId);
 			try {
 				// read block
-				byte[] data = readBlk(blkId, ctx.getBlockSize());
-				// Get byte buffer
-				buf = ByteBuffer.wrap(data);
+				buf = readBlk(blkId);
 				// read next link to ensure we are dealing with last block only
 				nextId = NodeEntry.getNextLink(buf);
 			} finally {
@@ -776,17 +790,14 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		kLocker.lock(blkId);
 		try {
 			// read block
-			byte[] data = readBlk(blkId, ctx.getBlockSize());
-			// Get byte buffer
-			buf = ByteBuffer.wrap(data);
+			buf = readBlk(blkId);
 			// get the previous block number
 			prevId = NodeEntry.getPrevLink(buf);
 			// we already hit the dead end
 			if (prevId == -1L)
 				return null;
 			// read previous block now
-			data = readBlk(prevId, ctx.getBlockSize());
-			buf = ByteBuffer.wrap(data);			
+			buf = readBlk(prevId);			
 		} finally {
 			kLocker.unlock(blkId);			
 		}

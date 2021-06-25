@@ -503,8 +503,8 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		t = (System.currentTimeMillis() - t);
 		if (t > stat.maxSyncTime)
 			stat.maxSyncTime = t;
-		stat.lastSyncTime = System.currentTimeMillis();
 		stat.numOfSync++;
+		stat.lastSyncTime = System.currentTimeMillis();		
 	}
 	
 	/**
@@ -719,8 +719,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		 *  To ensure we are dealing with right mode block
 		 */
 		Long nextId = right, blkId;
-		ByteBuffer buf = null;
-		
+		ByteBuffer buf = null;		
 		do {
 			blkId = nextId;
 			// lock block id

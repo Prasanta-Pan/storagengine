@@ -12,6 +12,7 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.pp.storagengine.api.KVEngine;
 import org.pp.storagengine.api.KVEntry;
@@ -21,16 +22,21 @@ import static org.pp.storagengine.api.imp.KVEngineImp.KVEntryImp;
 public class ConcurrentTest extends Thread {
 	// Maximum database size to test
 	private static long dbSize = 256 * MB;
+	// shared across threads
+	private static AtomicLong curSz = new AtomicLong(0);
 	// Database root directory
 	private static String ROOT_DIR = null;
 	// Storage engine
 	private static KVEngine db = null;
 	// Concurrent navigable map
 	private static ConcurrentNavigableMap<byte[], KVEntry> nmap = null;
-	// Tread Specific 
+	// Thread Local Random 
 	private ThreadLocalRandom rand = null;
+	// Thread specific
 	private MessageDigest md = null;
+	// action message
 	private volatile String actCmnd = null;	
+	
 	
 	// Byte array comparator
 	private static Comparator<byte[]> myComp = new Comparator<byte[]>() {
@@ -132,7 +138,7 @@ public class ConcurrentTest extends Thread {
 	}	
 	// Action commands
    	private static final String[] actCmnds = new String[] {
-   		"WRITER","GET-1", "GET-2", "GET-3", "ITR",
+   		"WRITER","GET", "ITR_REV", "ITR_REV(?,?)", "ITR",
    		"ITR(START,?)", "ITR(?,END)", "ITR(?,?)" 
    	};
    	
@@ -150,9 +156,7 @@ public class ConcurrentTest extends Thread {
 				case "WRITER":
 					write();
 					break;
-				case "GET-1":
-				case "GET-2":
-				case "GET-3":
+				case "GET":
 					get();
 					break;
 				default:
@@ -212,7 +216,12 @@ public class ConcurrentTest extends Thread {
    		byte[] key = null;
    		StringBuilder sbld = new StringBuilder();
    		int curAct = 0, ne = 0, per = 0, upd = 0, del = 0;
-   		for (long sz = 0; sz < dbSize;) {
+   		// when to start update
+   		long updSz = (long) (dbSize * 0.60f);
+   		// when to start deleting
+   		long delSz = (long) (dbSize * 0.70f);
+   		
+   		for (; curSz.get() < dbSize; ) {
    			// generate action
    			curAct = actions[rand.nextInt(0, actions.length)];
    			switch (curAct) {
@@ -220,17 +229,17 @@ public class ConcurrentTest extends Thread {
    			    	key = genKey();
    			    	if (nmap.containsKey(key))
    			    		continue;
-   			    	sz += put(key);
-   					ne++; 
+   			    	curSz.addAndGet(put(key));
+   			    	ne++; 
    			    	break;
    			    case UPD:
-   			    	if (sz < dbSize / 4)
+   			    	if (curSz.get() < updSz)
    			    		continue;
    			    	put(nextKey());
    			    	upd++;
    			    	break;
    			    case DEL:
-   			    	if (sz < dbSize / 4)
+   			    	if (curSz.get() < delSz)
    			    		continue;
    			    	key = nextKey();  
    			    	db.delete(key);
@@ -238,7 +247,7 @@ public class ConcurrentTest extends Thread {
    			    	del++;
    			    	break;   			   
    			}
-   			per = (int) ((100.0f * sz) / dbSize);
+   			per = (int) ((100.0f * curSz.get()) / dbSize);
    			// build string to be displayed
    			actCmnd = sbld.append(getName()) // thread name
 			   			    .append(":")
@@ -292,7 +301,7 @@ public class ConcurrentTest extends Thread {
    		KVEntry mEntry = null, kvEntry;
    		StringBuilder sbld = new StringBuilder();
    		int ne = 0, per = 0;
-   		for (long sz = 0; sz < dbSize;) {
+   		for (; curSz.get() < dbSize; ) {
    			key = nextKey();
    			kvEntry = db.get(key);
    			mEntry = nmap.get(key);
@@ -300,9 +309,10 @@ public class ConcurrentTest extends Thread {
    				continue;
    			if (kvEntry.timeStamp() != mEntry.timeStamp())
    				continue;
+   			// 
    			verify(mEntry.getKey(), mEntry.getValue(), kvEntry);
-   			sz += kvEntry.size();  ne++;
-   			per = (int) ((100.0f * sz) / dbSize);
+   			per = (int) ((100.0f * curSz.get()) / dbSize);
+   			ne++; // update count
    			// display message
    			actCmnd = sbld.append(getName()) // thread name
 		   			      .append(":")
@@ -329,7 +339,7 @@ public class ConcurrentTest extends Thread {
    		StringBuilder sbld = new StringBuilder();
    		
    		// start iterating
-   		for (long sz = 0; sz < dbSize;) {
+   		for (; curSz.get() < dbSize; ) {
    			switch (cmnd) {
 	   			case "ITR" :
 	   				itr = nmap.values().iterator();
@@ -351,6 +361,16 @@ public class ConcurrentTest extends Thread {
 	   				itr = nmap.subMap(key, key2).values().iterator();
 	   				kvItr = db.iterator(key, key2);
 	   				break;
+	   			case "ITR_REV(?,?)" :
+	   				key = getLowerMidKey();
+	   				key2 = getUpperMidKey();	   				
+	   				itr = nmap.descendingMap().subMap(key2, key).values().iterator();
+	   				kvItr = db.iterator(key2, key, true);
+	   				break;
+	   			case "ITR_REV" :
+	   				itr = nmap.descendingMap().values().iterator();
+	   				kvItr = db.iterator(true);
+	   				break;
 	   		}
 	   		// Start Iterating
 			try {
@@ -368,8 +388,7 @@ public class ConcurrentTest extends Thread {
 							throw new RuntimeException("Something wrong");
 					}
 					verify(mEntry.getKey(), mEntry.getValue(), kvEntry);
-					sz += kvEntry.size();
-					per = (int) ((100.0f * sz) / dbSize);
+					per = (int) ((100.0f * curSz.get()) / dbSize);
 					ne++;
 				}
 			} finally {

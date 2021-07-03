@@ -298,8 +298,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 			buf.position(size);
 			entry.serialize(buf);
 			buf.putInt(0, size + sz);
-			lockAndWrite(blkNo, data);
-			curBlkSync++;
+			lockAndWrite(blkNo, data);			
 			return null;
 		}
 		/**
@@ -315,8 +314,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		 */
 		if (nEntry.size < ctx.getBlockSize()) {
 			nEntry.serialize(buf);
-			lockAndWrite(blkNo, data);
-			curBlkSync++;			
+			lockAndWrite(blkNo, data);					
 			return null;
 		}
 		/**
@@ -387,6 +385,8 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		try {
 			// write block now
 			writeBlk(bNo, data);
+			// update block sync
+			curBlkSync++;
 		} finally {
 			kLocker.unlock(bNo);
 		}

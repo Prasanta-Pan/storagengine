@@ -94,25 +94,25 @@ public class BasicTest {
 	// Verify first key in the database
 	private static void firstKey() throws Exception {
 		System.out.print("\nValidating first key.....");
-		byte[] mKey = null, kvkey = null;
+		byte[] mKey = null;
 		try {
 			mKey = map.firstKey();
 		} catch (NoSuchElementException e) {
 		}
-		kvkey = db.firstKey();
-		verifyKey(mKey, kvkey);
+		KVEntry entry = db.firstEntry();
+		verifyKey(mKey, entry != null ? entry.getKey() : null);
 	}
 
 	// Verify last key in the database
 	private static void lastKey() throws Exception {
 		System.out.print("\nValidating last key.....");
-		byte[] mKey = null, kvkey = null;
+		byte[] mKey = null;
 		try {
 			mKey = map.lastKey();
 		} catch (NoSuchElementException e) {
 		}
-		kvkey = db.lastKey();
-		verifyKey(mKey, kvkey);
+		KVEntry entry = db.lastEntry();
+		verifyKey(mKey, entry != null ? entry.getKey() : null);
 	}
 
 	// Verify next key
@@ -120,16 +120,16 @@ public class BasicTest {
 		System.out.print("\nValidating next key.....");
 		byte[] key = getLowerMidKey();
 		byte[] mKey = map.higherKey(key);
-		byte[] kvkey = db.nextKey(key);
-		verifyKey(mKey, kvkey);
+		KVEntry entry = db.nextEntry(key);
+		verifyKey(mKey, entry != null ? entry.getKey() : null);
 	}
 	// verify previous key
 	private static void prevKey() throws Exception {
 		System.out.print("\nValidating prev key.....");
 		byte[] key = getLowerMidKey();
 		byte[] mKey = map.lowerKey(key);
-		byte[] kvkey = db.prevKey(key);
-		verifyKey(mKey, kvkey);
+		KVEntry entry = db.prevEntry(key);
+		verifyKey(mKey, entry != null ? entry.getKey() : null);
 	}
 	// common key verification
 	private static void verifyKey(byte[] mKey, byte[] kvKey) {

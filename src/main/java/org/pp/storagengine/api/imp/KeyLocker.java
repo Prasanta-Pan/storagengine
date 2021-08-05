@@ -37,8 +37,13 @@ public class KeyLocker<T> {
     * @param key
     */
    public void lock(T key) throws InterruptedException {
+	    // existing monitor if have
 		Monitor eMon = null;
-		Monitor newMon = new Monitor();
+		// get thread id
+		long tid = Thread.currentThread().getId();
+		// create a monitor object
+		Monitor newMon = new Monitor(tid, true);
+		// loop until done
 		for (;;) {
 			eMon = map.putIfAbsent(key, newMon);
 			/**
@@ -48,7 +53,7 @@ public class KeyLocker<T> {
 				break;
 			/**
 			 * Some thread already locked the key.
-			 * Check if wait is possible or not.			 * 
+			 * Check if wait is possible or not.
 			 */
 			synchronized (eMon) {
 				/**
@@ -56,6 +61,15 @@ public class KeyLocker<T> {
 				 * forever lock
 				 */
 				if (eMon.wait) {
+					/**
+					 * Check if same thread trying to lock the same key once again
+					 * If so no need to wait just increment counter and escape
+					 */
+					if (eMon.tid == tid) {
+						eMon.count++;
+						return;
+					}
+					// or wait
 					eMon.wait();
 				}
 			}
@@ -67,15 +81,26 @@ public class KeyLocker<T> {
     * @param key
     */
     public void unlock(T key) {
-    	Monitor monitor = map.remove(key);
+    	// First get a reference of monitor if exist
+    	Monitor monitor = map.get(key);
+    	// if reference found
     	if (monitor != null) {
+    		// synchronized the access
     	    synchronized (monitor) {
-    	    	/**
-    	    	 * Ensure no thread ever sleep 
-    	    	 * on the same monitor
-    	    	 */
-    	       monitor.wait = false;
-    		   monitor.notifyAll();
+    	    	// if locked multiple times
+    	    	if (monitor.count > 0) {
+    	    		monitor.count--;
+    	    		return;
+    	    	} else {
+    	    		// first remove from map
+    	    		map.remove(key);
+    	    		/**
+        	    	 * Ensure no thread ever sleep 
+        	    	 * on the same monitor
+        	    	 */
+        	       monitor.wait = false;
+        		   monitor.notifyAll();
+    	    	}    	    	
 			}
     	}
     } 
@@ -89,7 +114,24 @@ public class KeyLocker<T> {
     	/**
     	 * Indicate whether waiting is required or not
     	 */
-    	private boolean wait = true;     	
+    	private boolean wait;
+    	/**
+    	 * Thread ID (Thread who locked the key)
+    	 */
+    	private long tid;
+    	/**
+    	 * Lock count
+    	 */
+    	private int count;
+    	/**
+    	 * Create a monitor object
+    	 * @param tid
+    	 * @param wait
+    	 */
+    	private Monitor(long tid, boolean wait) {
+    		this.tid = tid;
+    		this.wait = true;    		
+    	}    	
     	
     }
     

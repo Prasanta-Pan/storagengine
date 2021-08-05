@@ -85,27 +85,27 @@ public interface KVEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public byte[] firstKey() throws Exception;
+	public KVEntry firstEntry() throws Exception;
 	/**
 	 *  Return the last key
 	 * @return
 	 * @throws Exception
 	 */
-	public byte[] lastKey() throws Exception;
+	public KVEntry lastEntry() throws Exception;
 	/**
 	 * Return next key of a given key if exist
 	 * @param key
 	 * @return
 	 * @throws Exception
 	 */
-	public byte[] nextKey(byte[] key) throws Exception;
+	public KVEntry nextEntry(byte[] key) throws Exception;
 	/**
 	 * Return previous key if exist of a given key
 	 * @param key
 	 * @return
 	 * @throws Exception
 	 */
-	public byte[] prevKey(byte[] key) throws Exception;
+	public KVEntry prevEntry(byte[] key) throws Exception;
     /**
 	 * Close the engine
 	 * @throws Exception

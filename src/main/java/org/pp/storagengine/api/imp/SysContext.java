@@ -31,7 +31,13 @@ class SysContext {
 	private int maxLobSize = 10 * MB;	
 	/** Sync after specified number of block update */
 	@Validator(powof2 = true, max = 512)
-	private int maxBlkSync = 128;	
+	private int maxBlkSync = 128;
+	/** If compression enabled */
+	@Validator()
+	private boolean compression = false;
+	/** If checksum enabled */
+	@Validator()
+	private boolean checksum = false;
 	
 	int getBlockSize() { return dataPageSize; }
 	int getMFileSize() { return dataFileSize; }
@@ -39,6 +45,8 @@ class SysContext {
 	String getRootDir() { return ROOT_DIR; }
     int getMaxLobSize() { return maxLobSize; }	
 	int getMaxBlkSync() { return maxBlkSync; }
+	boolean isCompression() { return compression; }
+	boolean isChecksum() { return checksum; 	}
 	
 	SysContext(String root,Properties options) throws Exception { 
 		if (root == null || "".equals(root.trim()))
@@ -52,7 +60,10 @@ class SysContext {
 		if (!loadConfigs()) { validateProps(this,options); saveConfigs(); }
 		// Maximum block per file
 		mBlockFile = dataFileSize / dataPageSize;
-		// if max block not provided by user				
+		// if max block not provided by user	
+		if (checksum) {
+			throw new RuntimeException("Checksum calculation not implemented yet");
+		}
 	}	
 	// Save context information
 	private void saveConfigs() throws Exception {

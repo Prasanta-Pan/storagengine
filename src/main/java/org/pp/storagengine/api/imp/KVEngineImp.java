@@ -284,7 +284,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		/**
 		 *  Load raw data block and get the block size
 		 */
-		long blkNo = (long) bEntry.value;
+		Long blkNo = (long) bEntry.value;
 		byte[] data = readBlk(blkNo, ctx.getBlockSize());
 		ByteBuffer buf = ByteBuffer.wrap(data); // get a byte buffer
 		int size = buf.getInt(); // overall size
@@ -904,25 +904,25 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 	}
 
 	@Override
-	public byte[] firstKey() throws Exception {
+	public KVEntry firstEntry() throws Exception {
 		// return first key
 		return getKey(null, false, false);
 	}	
 
 	@Override
-	public byte[] lastKey() throws Exception {
+	public KVEntry lastEntry() throws Exception {
 		// return last key
 		return getKey(null, true, false);
 	}	
 	
 	@Override
-	public byte[] nextKey(byte[] key) throws Exception {
+	public KVEntry nextEntry(byte[] key) throws Exception {
 		// return next key if exist
 		return getKey(key, false, true);
 	}
 	
 	@Override
-	public byte[] prevKey(byte[] key) throws Exception {
+	public KVEntry prevEntry(byte[] key) throws Exception {
 		// return previous key if exist
 		return getKey(key, true, true);
 	}
@@ -933,7 +933,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	private byte[] getKey(byte[] key, boolean rev, boolean validateKey) throws Exception {
+	private KVEntry getKey(byte[] key, boolean rev, boolean validateKey) throws Exception {
 		/**
 		 * validate key if required
 		 */
@@ -942,21 +942,20 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		/**
 		 * Get an iterator based on direction
 		 */
-		byte[] nxtKey = null;
 		KVIterator itr = iterator(key, rev);
 		try {
 			while (itr.hasNext()) {
-				nxtKey = itr.next().getKey();
+				KVEntry entry = itr.next();
 				/**
 				 * if first or last key was requested
 				 */
 				if (key == null)
-					return nxtKey;
+					return entry;
 				/**
 				 * otherwise
 				 */
-				else if (!Arrays.equals(nxtKey, key))
-					return nxtKey;
+				else if (!Arrays.equals(entry.getKey(), key))
+					return entry;
 			}
 		} finally {
 			itr.close();

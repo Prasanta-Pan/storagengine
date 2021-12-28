@@ -498,7 +498,7 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 	 */
 	private void syncFiles() throws Exception {
 		// get current time stamp
-		long t = System.currentTimeMillis();
+		long tt = System.currentTimeMillis();
 		// First sync and close all open files		
 		if (fCache.size() > 0) {
 			RandFileCacheEntry tmpF = null;
@@ -508,13 +508,13 @@ public class KVEngineImp extends AbstractFileHandler implements KVEngine {
 		// Now sync TLF
 		sync(tlFile);
 		// Update statistics
-		t = (System.currentTimeMillis() - t);
+		long t = (System.currentTimeMillis() - tt);
 		if (t > stat.maxSyncTime)
 			stat.maxSyncTime = t;
 		// update number of sync statistics
 		stat.numOfSync++;
 		// update sync time
-		stat.lastSyncTime = System.currentTimeMillis();		
+		stat.lastSyncTime = tt;		
 	}
 	
 	/**

@@ -1,5 +1,6 @@
 package org.pp.storagengine.api.imp;
 
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -66,6 +67,45 @@ public class LRUCache <K extends CacheEntry, V extends CacheEntry> {
 	public V put(K key, V value) {
 		return put(key, value, false);
 	}
+	/**
+	 * Add node to the head 
+	 * @param key
+	 * @param value
+	 */
+	public void addToHead(K key, V value) {
+		// check both, key and value
+		if (key == null || value == null)
+			throw new NullPointerException("Key or Value can not be null");
+		lock.lock();
+		try {
+			
+			LRUNode<K, V> eNode = null;
+			LRUNode<K, V> lNode = new LRUNode<>(key, value);
+			// put the new entry
+			eNode = map.put(key, lNode);
+			if (eNode != null) {
+				// remove old mapping (if any) and adjust size
+				updSize(eNode.key, eNode.value, false);
+				removeNode(eNode);
+			}
+			// head it
+			headIt(lNode);
+			// update size
+			updSize(key, value, true); 
+			
+		} finally {
+			lock.unlock();
+		}
+	}
+	
+	/**
+	 * Return iterator of entries
+	 * @return
+	 */
+	public Iterator<LRUNode<K,V>> iterator() {
+		return new IteratorImp(head);
+	}
+	
 	/**
 	 * Put only if absent
 	 * @param key
@@ -153,6 +193,32 @@ public class LRUCache <K extends CacheEntry, V extends CacheEntry> {
 			return delete(k);
 		} finally {
 			lock.unlock();
+		}
+	}
+	/**
+	 * Clear the cache
+	 */
+	public void clear() {
+		lock.lock();
+		try {
+			// first clear the map
+			map.clear();
+			// now clear the list
+			for (LRUNode<K, V> tmp = head; tmp != null;) {
+				LRUNode<K, V> next = tmp.next;
+				tmp.key = null;
+				tmp.next = null;
+				tmp.value = null;
+				tmp.prev = null;
+				// next node to go
+				tmp = next;
+			}
+			// finally set head tail to null
+			head = tail = null;
+			// set size to zero
+			size = 0;
+		} finally {
+			lock.lock();
 		}
 	}
     /**
@@ -275,6 +341,21 @@ public class LRUCache <K extends CacheEntry, V extends CacheEntry> {
 		lruNode.prev = tail;
 		tail = tail.next = lruNode;
 	}
+	/**
+	 * Add node to HEAD
+	 * @param lruNode
+	 */
+	private void headIt(LRUNode<K, V> lruNode) {
+		// if first node
+		if (head == null) {
+			head = tail = lruNode;
+			return;
+		}
+		// make it first
+		lruNode.next = head;
+		head.prev = lruNode;
+		head = lruNode;		
+	}
 	
     /**
      * 
@@ -283,7 +364,7 @@ public class LRUCache <K extends CacheEntry, V extends CacheEntry> {
      * @param <K>
      * @param <V>
      */
-	static final class LRUNode<K, V> {
+	public static final class LRUNode<K, V> {
 		private K key;
 		private V value;
 		private LRUNode<K, V> prev, next;
@@ -295,6 +376,56 @@ public class LRUCache <K extends CacheEntry, V extends CacheEntry> {
 			this.key = key;
 			this.value = value;
 		}
+		
+		public K key() {
+			return key;
+		}
+		
+		public V value() {
+			return value;
+		}
+	}
+	
+	/**
+	 * Iterator implementation
+	 * @author prasantsmac
+	 *
+	 */
+	final class IteratorImp implements Iterator<LRUNode<K, V>> {
+        /**
+         * Reference to the current traversing node
+         */
+		private LRUNode<K, V> p  = null;
+		/**
+		 * Current selected LRUNode
+		 */
+		private LRUNode<K, V> c = null;
+		
+		/**
+		 * 
+		 * @param h
+		 */
+		private IteratorImp(LRUNode<K, V> h) {
+			this.p = h;
+		}
+		
+		@Override
+		public boolean hasNext() {
+			// TODO Auto-generated method stub
+			if (p != null) {
+				c = p;
+				p = p.next;
+				return true;
+			}
+			return false;
+		}
+
+		@Override
+		public LRUNode<K, V> next() {
+			// TODO Auto-generated method stub
+			return c;
+		}
+		
 	}
 
 	public static void main(String[] args) {

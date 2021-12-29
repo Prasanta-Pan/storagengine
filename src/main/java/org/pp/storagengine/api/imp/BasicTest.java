@@ -371,11 +371,33 @@ public class BasicTest {
 
 	// Open or create database
 	private static void openDb() throws Exception {
-		// Setup basic properties first
+		/**
+		 * User can either use standard java system properties or
+		 * can create their own properties if they want it
+		 */
 		Properties props = System.getProperties();
+		/**
+		 * This property indicate data block or page size.
+		 * The value must be always power of 2 starting from 4KB.
+		 */
 		props.setProperty("dataPageSize", "4KB");
+		/**
+		 * This property indicate maximum size of particular
+		 * key value pair (Also called LOB)
+		 */
 		props.setProperty("maxLobSize", "1MB");
+		/**
+		 * Key-Values are organised (sorted) in files.
+		 * This property indicate the engine, how big a database file could be.
+		 * Obviously, for big database we will have several database files
+		 * in database directory.
+		 */
 		props.setProperty("dataFileSize", "32MB");
+		/**
+		 * By default not every put operation followed by disk sync command.
+		 * This property indicate after exactly how many write operations (put or delete)
+		 * sync command will be issued in order to ensure durability of data.
+		 */
 		props.setProperty("maxBlkSync", "128");
 		// Create or open Database
 		db = new KVEngineImp(ROOT_DIR, props, myComp);

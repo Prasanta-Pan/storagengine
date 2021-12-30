@@ -39,7 +39,7 @@ Below code sample shows us how to create a brand new database or open an existin
 
 First create a byte array comparator...
 
-```
+```java
 // Byte array comparator
 	private static Comparator<byte[]> myComp = new Comparator<byte[]>() {
 		@Override
@@ -92,7 +92,7 @@ Than create a sample config properties....
 Note that the above properties are default properties, means if users choose not set any properties at all
 they can simply pass an empty Property object to the engine as shown below.
 
-```
+```java
 		/**
 		 * User can either use standard java system properties or
 		 * can create their own properties if they want it
@@ -102,7 +102,7 @@ they can simply pass an empty Property object to the engine as shown below.
 
 Now we are ready to create (or open an existing key value database)
 
-```
+```java
 import org.pp.storagengine.api.KVEngine;
 import org.pp.storagengine.api.imp.KVEngineImp;
 	.....
@@ -124,7 +124,7 @@ Note that, the KVEngine instance (db) is thread safe, means all the KVEngine API
 The KVEngine provides Put, delete, and get methods to modify/query KV database.
 Few examples below.
 
-```
+```java
 import org.pp.storagengine.api.KVEngine;
 	.....
 	....
@@ -163,7 +163,7 @@ import org.pp.storagengine.api.KVEngine;
 
 The following code block demonstrates the use of iterators.
 
-```
+```java
 import org.pp.storagengine.api.KVEngine;
 import org.pp.storagengine.api.KVEntry;
 import org.pp.storagengine.api.KVIterator;
@@ -221,7 +221,7 @@ import org.pp.storagengine.api.KVIterator;
 
 Below code block demonstrates how to fetch first entry in the KV database.
 
-```
+```java
 import org.pp.storagengine.api.KVEngine;
 import org.pp.storagengine.api.KVEntry;
 
@@ -237,7 +237,7 @@ import org.pp.storagengine.api.KVEntry;
 
 Below code block demonstrates how to fetch last entry in the KV database.
 
-```
+```java
 import org.pp.storagengine.api.KVEngine;
 import org.pp.storagengine.api.KVEntry;
 
@@ -253,7 +253,7 @@ import org.pp.storagengine.api.KVEntry;
 
 Below code block demonstrates how to fetch a greater key-value entry (if exist) of a specific key.
 
-```
+```java
 import org.pp.storagengine.api.KVEngine;
 import org.pp.storagengine.api.KVEntry;
 
@@ -270,7 +270,7 @@ import org.pp.storagengine.api.KVEntry;
 
 Below code block demonstrates how to fetch a lower key-value entry (if exist) of a specific key.
 
-```
+```java
 import org.pp.storagengine.api.KVEngine;
 import org.pp.storagengine.api.KVEntry;
 
